@@ -11,5 +11,11 @@ Popup {
     modal: true
     focus: true
 
+    onOpened: function () {
+        mainContent.opacity = 0.2
+    }
 
+    onClosed: function () {
+        mainContent.opacity = 1
+    }
 }

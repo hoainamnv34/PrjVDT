@@ -143,6 +143,8 @@ Window {
         }
     }
 
+
+    //edit or add a path to the server
     MyPopup {
         id: editPopup
         width: 400;
@@ -150,18 +152,13 @@ Window {
 
         property bool isAdd: true;
 
-        onOpened: function () {
-            mainContent.opacity = 0.2
-        }
-
-        onClosed: function () {
-            mainContent.opacity = 1
-        }
-
         function createNewVideo() {
             isAdd = true;
             videoNameField.text = "example"
             videoLinkField.text = "rtsp://example"
+            privateCheckBox.checked = false;
+            videoUserField.text = "";
+            videoPassField.text = "";
             open()
         }
 
@@ -172,6 +169,16 @@ Window {
             videoNameField.text = data.name
             videoLinkField.text = data.conf.source
             oldName = data.name
+            if(data.conf.readUser !== "") {
+                privateCheckBox.checked = true;
+                videoUserField.text = data.conf.readUser;
+                videoPassField.text = data.conf.readPass;
+            }else {
+                privateCheckBox.checked = false;
+                videoUserField.text = "";
+                videoPassField.text = "";
+
+            }
             open()
         }
 
@@ -199,11 +206,58 @@ Window {
                         Layout.fillWidth: true
                     }
 
-
                     TextField{
                         id: videoLinkField;
                         Layout.fillWidth: true
                         padding: 10;
+                    }
+                }
+            }
+
+
+
+            CheckBox {
+                id: privateCheckBox
+                text: qsTr("Private")
+                checked: false
+                onCheckStateChanged: function() {
+                    if (checkState == Qt.Checked) {
+                        privateLayout.visible = true;
+                        editPopup.height = 250;
+                    }else {
+                        privateLayout.visible = false;
+                        editPopup.height = 150;
+                    }
+                }
+            }
+
+            RowLayout {
+                id: privateLayout
+                visible: false
+                ColumnLayout {
+                    Label {
+                        text: qsTr("User");
+                        Layout.fillWidth: true
+                    }
+                    TextField {
+                        id: videoUserField;
+                        Layout.fillWidth: true
+                        padding: 10
+                    }
+                }
+
+                ColumnLayout {
+                    Label{
+                        text: qsTr("Password")
+                        Layout.fillWidth: true
+
+                    }
+
+                    TextField{
+                        id: videoPassField;
+                        Layout.fillWidth: true
+                        padding: 10;
+                        echoMode: TextInput.Password
                     }
                 }
             }
@@ -221,15 +275,26 @@ Window {
                 Item {Layout.fillWidth: true}
 
                 MyButton {
+                    id: okBtn
                     text: editPopup.isAdd ? qsTr("Add") : qsTr("Update")
+                    property var data;
 
                     onClicked: {
+                        if (privateCheckBox.checkState == Qt.Checked) {
+                            okBtn.data =  { "source" : videoLinkField.text,
+                                            "readUser" : videoUserField.text,
+                                            "readPass" : videoPassField.text,
+                                            }
+                        }else {
+                            okBtn.data = {"source" : videoLinkField.text,}
+                        }
+
                         if(editPopup.isAdd) {
 
-                            media.add({"source" : videoLinkField.text,}, videoNameField.text);
+                            media.add(okBtn.data, videoNameField.text);
                         }else {
 
-                            media.update({"source" : videoLinkField.text,}, videoNameField.text, editPopup.oldName);
+                            media.update(okBtn.data, videoNameField.text, editPopup.oldName);
                         }
                         editPopup.close();
                     }
@@ -240,6 +305,66 @@ Window {
         }
 
     }
+
+
+    //View and kick the WebRTC session
+    MyPopup {
+        id: viewerPopup
+        width: 540
+        height: 300
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+        property var viewerModel;
+
+        function openViewerModel(model) {
+            viewerModel = model;
+            viewerPopup.open();
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+
+            ListView{
+                model:viewerPopup.viewerModel
+                Layout.fillHeight: true
+                Layout.fillWidth: true
+                spacing: 10;
+
+                delegate: RowLayout{
+                    id: viewerDelegate;
+                    required property var modelData
+
+                    spacing: 15
+                    height: 40
+                    MyLabel {
+                        font.pixelSize: 15
+                        Layout.preferredWidth: 300
+                        Layout.fillHeight: true
+                        text: viewerDelegate.modelData.id
+                        color: "black"
+                    }
+
+                    MyLabel {
+                        font.pixelSize: 15
+                        Layout.preferredWidth: 150
+                        Layout.fillHeight: true
+                        text: viewerDelegate.modelData.created
+                        color: "black"
+                    }
+                    ToolButton {
+                        icon.source: "qrc:/img/icons/kick.png"
+                        onClicked: function () {
+                            media.kickOutSession(viewerDelegate.modelData.id);
+                            viewerDelegate.visible = false;
+                            media.refreshCurrentPage();
+                        }
+                    }
+
+                }
+            }
+        }
+    }
+
 
     ColumnLayout {
         anchors.fill: parent
@@ -267,11 +392,13 @@ Window {
 
                 Item { Layout.fillWidth: true /* spacer */ }
 
+                //add
                 MyToolButton {
                     icon.source: "qrc:/img/icons/add.png"
                     onClicked: editPopup.createNewVideo()
                 }
 
+                //logout
                 MyToolButton {
                     icon.source: "qrc:/img/icons/logout.png"
                     onClicked: urlSelectionPopup.open()
@@ -344,12 +471,16 @@ Window {
                                 ToolButton {
                                    id: viewButton
                                    icon.source: "qrc:/img/icons/play.png"
-                                   onClicked: restService.playMedia(nameDelegate.modelData.name);
+                                   onClicked: {
+                                       restService.playMedia(nameDelegate.modelData.name);
+                                       media.refreshCurrentPage();
+                                   }
                                 }
                                 //edit
                                 ToolButton {
                                    icon.source: "qrc:/img/icons/edit.png"
                                    onClicked: editPopup.updateVideo(nameDelegate.modelData);
+
                                 }
 
                                 //delete
@@ -358,11 +489,15 @@ Window {
                                    onClicked: media.remove(nameDelegate.modelData.name);
                                 }
 
-//                                //show viewer
-//                                ToolButton {
-//                                   icon.source: "qrc:/img/icons/viewer.png"
-////                                   onClicked:
-//                                }
+                                //show viewer
+                                ToolButton {
+                                   icon.source: "qrc:/img/icons/viewer.png"
+                                   onClicked: function() {
+                                       viewerPopup.openViewerModel(nameDelegate.modelData.readers);
+                                       media.refreshCurrentPage();
+                                   }
+                                }
+
                             }
 
 

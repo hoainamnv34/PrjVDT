@@ -32,7 +32,7 @@ public:
     Q_INVOKABLE void update(const QVariantMap& data, QString newName, QString oldName);
     Q_INVOKABLE void add( QVariantMap data, QString name);
     Q_INVOKABLE void remove(QString name);
-//    Q_INVOKABLE void getCurrentPaths();
+    Q_INVOKABLE void kickOutSession(QString id);
 
 
 signals:
@@ -41,9 +41,12 @@ signals:
 
 private:
     void refreshRequestFinished(QNetworkReply* reply);
-//    void getCurrentPaths();
+    void getSessionFinished(QNetworkReply* reply);
+    QString convertDateTime(QString timeStr);
+
     std::shared_ptr<RestAccessManager> m_manager;
     QList<QJsonObject> m_data;
+    QList<QJsonObject> m_session;
     QString m_path;
 
 

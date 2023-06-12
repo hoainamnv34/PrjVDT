@@ -14,5 +14,6 @@
         <file>icons/refresh.png</file>
         <file>icons/play.png</file>
         <file>icons/viewer.png</file>
+        <file>icons/kick.png</file>
     </qresource>
 </RCC>
